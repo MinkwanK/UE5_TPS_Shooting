@@ -1,10 +1,14 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
+// Fill out your copyright notice in the Description page of Project Settings.
+
+
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/PlayerController.h"
+#include "GameFramework/Controller.h"
 #include "Components/InputComponent.h"
 #include "Kismet/KismetMathLibrary.h"
-#include "GameFramework/Controller.h"
 #include "Engine/World.h"
 #include "MyCrosshair.h"
 #include "MyProjectile.h"
@@ -20,8 +24,8 @@ AMyCharacter::AMyCharacter()
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = true;
 	bUseControllerRotationRoll = false;
-	
-	GetCharacterMovement()->bUseControllerDesiredRotation = true; 
+
+	GetCharacterMovement()->bUseControllerDesiredRotation = true;
 	//게임 캐릭터가 컨트롤러의 회전 방향으로 같이 회전한다. 카메라의 방향에 캐릭터가 영향을 받음.
 	//GetCharacterMovement()->bOrientRotationToMovement = true;
 
@@ -29,6 +33,9 @@ AMyCharacter::AMyCharacter()
 	TPS_Arm = CreateDefaultSubobject<USpringArmComponent>(TEXT("TPS_Arm"));  //카메라 Arm
 	TPS_Arm->SetupAttachment(RootComponent);
 	TPS_Arm->TargetArmLength = 300.0f;
+	TPS_Arm->SocketOffset.X = 60.0f;
+	TPS_Arm->SocketOffset.Y = 60.0f;
+	TPS_Arm->SocketOffset.Z = 100.0f;
 	TPS_Arm->bUsePawnControlRotation = true; //상속받은 폰의 컨트롤 회전을 따를지를 말한다. 즉, 플레이어가 마우스를 움직여 회전하면 카메라도 같이 회전하다.
 
 
@@ -37,12 +44,18 @@ AMyCharacter::AMyCharacter()
 
 
 
+	// 이는 카운트다운 일시정지( 및 재개), 남은 시간 확인 및 변경, 심지어 타이머 자체를 취소하는데도 쓸 수 있습니다.
+
+
 }
 
 // Called when the game starts or when spawned
 void AMyCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+	//사격 타이머 설정. 자동사격. 1초단위.
+	GetWorldTimerManager().SetTimer(FireRateHandle, this, &AMyCharacter::Fire, 0.1, true, 0);
+	GetWorldTimerManager().PauseTimer(FireRateHandle); //처음에 중지한 상태로 시작하기 위해서이다.
 
 }
 
@@ -50,7 +63,7 @@ void AMyCharacter::BeginPlay()
 void AMyCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	LineTraceFunc();
+
 
 
 }
@@ -61,11 +74,12 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
 	PlayerInputComponent->BindAction("Fire", IE_Pressed, this, &AMyCharacter::Fire);
+	PlayerInputComponent->BindAction("StopFire", IE_Released, this, &AMyCharacter::StopFire);
+	//PlayerInputComponent->BindAction("Crouch", IE_Pressed, this, &AMyCharacter::DoCrouch);
+
 	PlayerInputComponent->BindAxis("Move Forward", this, &AMyCharacter::MoveForward);
 	PlayerInputComponent->BindAxis("Move Right", this, &AMyCharacter::MoveRight);
-	
-
-	PlayerInputComponent->BindAxis("Turn", this, &APawn::AddControllerYawInput); 
+	PlayerInputComponent->BindAxis("Turn", this, &APawn::AddControllerYawInput);
 	PlayerInputComponent->BindAxis("Look Up", this, &APawn::AddControllerPitchInput);
 }
 
@@ -84,6 +98,41 @@ void AMyCharacter::MoveRight(float Value)
 	AddMovementInput(Direction, Value);
 }
 
+
+
+// 총을 쏠때 타이머는 연사속도다. 한발쏘고 타이머가 끝나면 다시 한발쏘고의 예다.
+//라인트레이스를 쏜다. 사격,상호작용에도 쓰인다.
+void AMyCharacter::Fire()
+{
+	if (GetWorldTimerManager().IsTimerActive(FireRateHandle) == false)  //사격 명령이 중지됐다면
+		GetWorldTimerManager().UnPauseTimer(FireRateHandle); //자동 사격 타이머 다시 시작
+
+	FHitResult Hit;
+	FQuat rotator = FQuat(Controller->GetControlRotation()); //FQuat는 Rotation 변수?
+	FVector Start = this->GetMesh()->GetSocketLocation(FName("camera"));
+	FVector End = Start + rotator.GetForwardVector() * 1000.0f; //스크린 중앙을 향하게 할 것이다.
+	//End.Z += TPS_Camera->GetComponentLocation().Z - End.Z;
+
+	ECollisionChannel Channel = ECollisionChannel::ECC_Visibility;
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(this);
+	GetWorld()->LineTraceSingleByChannel(Hit, Start, End, Channel, QueryParams);
+	DrawDebugLine(GetWorld(), Start, End, FColor::Red, false, 0, 0, 3.0);
+
+}
+void AMyCharacter::StopFire()
+{
+	GetWorldTimerManager().PauseTimer(FireRateHandle);
+}
+
+//void AMyCharacter::DoCrouch()
+//{
+//	UE_LOG(LogClass, Warning, TEXT("DoCrouch"));
+//	CanCrouch() ? Crouch() : UnCrouch(); //웅크리기 가능하면 웅크리고 안되면 하지않기
+//}
+
+
+
 /*
 void AMyCharacter::LineTraceFunc()
 {
@@ -91,16 +140,19 @@ void AMyCharacter::LineTraceFunc()
 
 	FQuat rotator = FQuat(Controller->GetControlRotation()); //FQuat는 Rotation 변수?
 	FVector Start = this->GetMesh()->GetSocketLocation(FName("linetrace_socket"));
-	FVector End = Start + rotator.GetForwardVector() * 100.0f;
+	FVector End = Start + rotator.GetForwardVector() * 1000.0f;
 
 	ECollisionChannel Channel = ECollisionChannel::ECC_Visibility;
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(this);
 	GetWorld()->LineTraceSingleByChannel(Hit, Start, End, Channel, QueryParams);
-	DrawDebugLine(GetWorld(), Start, End, FColor::Red);
+	DrawDebugLine(GetWorld(), Start, End, FColor::Red,false,0,0,3.0);
 }
 */
 
+
+
+/*
 void AMyCharacter::Fire()
 {
 	//발사시도
@@ -111,8 +163,8 @@ void AMyCharacter::Fire()
 		FVector PlayerLocation = this->GetMesh()->GetSocketLocation(FName("linetrace_socket")); //라인트레이스가 시작되는 위치, 즉 발사가 시작되는 위치
 		FRotator PlayerRotation = Controller->GetControlRotation();
 
-	
-		GetActorEyesViewPoint(PlayerLocation, PlayerRotation); 
+
+		GetActorEyesViewPoint(PlayerLocation, PlayerRotation);
 
 		FVector MuzzleLocation = PlayerLocation + FTransform(PlayerRotation).TransformVector(MuzzleOffset);
 		FRotator MuzzleRotation = PlayerRotation;
@@ -134,3 +186,4 @@ void AMyCharacter::Fire()
 		}
 	}
 }
+*/
