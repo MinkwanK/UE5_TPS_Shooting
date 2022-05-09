@@ -9,6 +9,7 @@
 #include "GameFramework/Controller.h"
 #include "Components/InputComponent.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
 #include "MyCrosshair.h"
 #include "MyProjectile.h"
@@ -117,7 +118,16 @@ void AMyCharacter::Fire()
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(this);
 	GetWorld()->LineTraceSingleByChannel(Hit, Start, End, Channel, QueryParams);
-	DrawDebugLine(GetWorld(), Start, End, FColor::Red, false, 0, 0, 3.0);
+	//DrawDebugLine(GetWorld(), Start, End, FColor::Red, false, 0, 0, 3.0);
+	
+	if (Rifle_FireSound != nullptr)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, Rifle_FireSound, GetActorLocation());
+	}
+	if (Rifle_FireParticles != nullptr)
+	{
+		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), Rifle_FireParticles, this->GetMesh()->GetChildComponent(0)->GetSocketLocation(FName("MuzzleFlash")));
+	}
 
 }
 void AMyCharacter::StopFire()
