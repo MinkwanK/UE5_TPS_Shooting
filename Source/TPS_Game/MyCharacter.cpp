@@ -14,6 +14,7 @@
 #include "MyCrosshair.h"
 #include "MyProjectile.h"
 #include "DrawDebugHelpers.h"
+
 #include "MyCharacter.h"
 
 // Sets default values
@@ -44,9 +45,8 @@ AMyCharacter::AMyCharacter()
 	TPS_Camera->SetupAttachment(TPS_Arm, USpringArmComponent::SocketName);
 
 
-
-	// 이는 카운트다운 일시정지( 및 재개), 남은 시간 확인 및 변경, 심지어 타이머 자체를 취소하는데도 쓸 수 있습니다.
-
+	
+	
 
 }
 
@@ -54,6 +54,7 @@ AMyCharacter::AMyCharacter()
 void AMyCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+
 	//사격 타이머 설정. 자동사격. 1초단위.
 	GetWorldTimerManager().SetTimer(FireRateHandle, this, &AMyCharacter::Fire, 0.1, true, 0);
 	GetWorldTimerManager().PauseTimer(FireRateHandle); //처음에 중지한 상태로 시작하기 위해서이다.

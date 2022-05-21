@@ -11,6 +11,9 @@ class TPS_GAME_API AMyCharacter : public ACharacter
 {
 	GENERATED_BODY()
 
+
+		
+
 public:
 	// Sets default values for this character's properties
 	AMyCharacter();
@@ -38,6 +41,7 @@ protected:
 	class USoundBase* Rifle_FireSound;
 	UPROPERTY(EditAnywhere, Category = Particles)
 	class UParticleSystem* Rifle_FireParticles;
+	
 
 	//EditAnywhere 지정자를 통해 총구 오프셋 값을 블루프린트 에디터의 디폴트 모드나 캐릭터의 아무 인스턴스에 대한 디테일 탭에서 변경할 수 있습니다. 
 	//BlueprintReadWrite 지정자를 통해서는 블루프린트 안에서 총구 오프셋의 값을 구하고 설정할 수 있습니다.
@@ -48,13 +52,11 @@ protected:
 	UFUNCTION()
 		void MoveRight(float Value);
 
-	//UFUNCTION()
-	//void LineTraceFunc();
-
 	UFUNCTION()
 		void Fire();
 	UFUNCTION()
 		void StopFire();
+
 
 
 public:
